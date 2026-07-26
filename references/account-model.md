@@ -32,6 +32,12 @@ in the release pack covers unbolting qID from an existing email login.
 call comes from a verified proof. Both built-in adapters ignore it, and so
 should yours unless you have a specific reason.
 
+One trap if you do use it: on QR sign-in the *last* call to touch the row is the
+`poll` step, and that one arrives with no context at all. An adapter written the
+natural way, writing whatever it was handed, blanks the column on every mobile
+sign-in and leaves it populated for desktop. Never clear a stored field on a
+context-free call.
+
 ## Never key accounts on `recovery_leaf_hash`
 
 The field looks like a stable per-wallet identifier. It is not one, and using it

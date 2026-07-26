@@ -57,6 +57,8 @@ is not shared and does not survive.
 
 ## Runtime
 
-The verifier is pure JavaScript with three small dependencies and no native
-bindings, so the Node runtime works. If you set `export const runtime = "edge"`,
-verify your store client supports it; most SQL drivers do not.
+Use the Node runtime. `export const runtime = "edge"` does not work regardless
+of which store you pick: `session.js` imports `createHmac` and `timingSafeEqual`
+from `node:crypto` and uses `Buffer`, and `qidNextHandlers` pulls that into the
+graph. Swapping to an edge-compatible store will not rescue it; the error will
+just move into `node_modules`.

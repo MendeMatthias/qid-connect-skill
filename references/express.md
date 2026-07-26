@@ -14,7 +14,7 @@ const qid = createQidConnect({
 });
 
 const app = express();
-app.use(express.json());          // must come BEFORE the middleware
+app.use(express.json());          // optional: the middleware parses the body itself
 app.use("/qid", qidMiddleware(qid));
 
 app.get("/api/me", requireQidSession(qid), (req, res) => {
@@ -22,8 +22,11 @@ app.get("/api/me", requireQidSession(qid), (req, res) => {
 });
 ```
 
-`express.json()` mounted after the middleware produces `bad_request_body` on
-every call, which reads like a client bug and is not.
+A body parser is optional here, and its position does not matter. The
+middleware reads and parses the body itself when no parser has run
+(`middleware.js:35-47` returns `req.body` if one did, and drains the stream
+otherwise), so `express.json()` is a convenience for the rest of your app rather
+than a requirement of this one.
 
 `requireQidSession` answers 401 for anonymous callers and populates
 `req.qidSession` otherwise, so route handlers stay free of auth logic.

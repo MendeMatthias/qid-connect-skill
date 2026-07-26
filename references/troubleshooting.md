@@ -14,11 +14,11 @@ most of these directly and saves you the guessing.
 | Sign-in succeeds, then the user is immediately signed out | The session cookie is not reaching your server: a cross-origin backend without a same-origin `/qid/*` rewrite, or plain http so a `Secure` cookie is dropped. |
 | `nonce_unknown` on a proof the user just signed | The nonce expired (default TTL 5 minutes), was already used, or was burned by widget rotation. Also what an unshared store looks like. |
 | `expired` or `not_yet_valid` | Server clock skew. The window is TTL plus 60 seconds of tolerance. |
-| Everyone signed out after a deploy | `sessionSecret` changed. It is derived per-process if you did not pin it; put it in a secret store. |
+| Everyone signed out after a deploy | `sessionSecret` changed, or instances resolve different values for it. It is required (under 32 characters throws at startup), so it is never auto-derived. |
 | Works locally, fails in production only | Almost certainly `origin` again, plus a CDN redirect you did not know about. |
 | The button never renders, console shows a CSP violation | The hosted widget is a cross-origin module. Add `https://qid.dev` to `script-src`, or vendor the widget. |
 | `ERR_MODULE_NOT_FOUND` importing the SQLite stores | There is no `/sqlite` subpath. `SqliteNonceStore` and `SqliteAccounts` come from the package root, and they take a database handle, not a path. |
-| `bun install` fails on a bare server | `unzip` is missing: `apt-get install -y unzip`, or run on Node 20+ with the Node SQLite path. |
+| `bun install` fails on a bare server | `unzip` is missing: `apt-get install -y unzip`. The `node:sqlite` path needs Node 22.5+; on older Node use `better-sqlite3`, which the stores also accept. |
 
 ## Reason codes, and what each one means
 
@@ -26,7 +26,7 @@ From `verifySignIn`:
 
 - `bad_proof_shape` - not a v1 bundle, or a field is missing or malformed.
 - `origin_mismatch` - the proof was signed for a different site. Working as intended: this is what makes a proof for another site worthless on yours.
-- `address_mismatch` - the address does not rebuild from the keys in the proof.
+- `address_mismatch` - only reachable when a caller passes an expected address to the verifier directly. The server SDK does not, so through `/verify` this case surfaces as `bad_signature`.
 - `expired` / `not_yet_valid` - outside the freshness window; check clocks.
 - `nonce_used` - replay, or the user submitted twice.
 - `bad_signature` - the signature does not verify.
@@ -34,7 +34,7 @@ From `verifySignIn`:
 From the server layer:
 
 - `nonce_unknown` - this deployment did not issue that nonce, or no longer knows it.
-- `bad_request_body` - the body was not JSON. On Express, `express.json()` must be mounted before the middleware.
+- `bad_request_body` - the body was present and was not valid JSON. `/challenge` swallows parse errors by design, so this only comes from `/verify` and `/proof`.
 - `bad_origin` on `/verify` or `/poll` - the login-CSRF guard fired. Legitimate cross-site attempts hit this; so does a proxy that rewrites the `Origin` header.
 
 ## Developing without a wallet

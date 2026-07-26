@@ -11,9 +11,9 @@ account model right, and verify the result against your running app.
 
 A developer who knows their own codebase should be signed in with a real
 post-quantum wallet signature in **15 to 30 minutes**. Most of the remaining
-time in a qID integration used to go on four mistakes that produce no error in
-the browser; the skill knows all four, and the checker below finds them in
-seconds instead of an afternoon.
+time in a qID integration used to go on a handful of mistakes that produce no
+error in the browser at all; the skill knows them, and the checker below finds
+them in seconds instead of an afternoon.
 
 ## Install
 
@@ -53,11 +53,17 @@ bun skills/qid-connect/scripts/check-integration.mjs http://localhost:3000
 node skills/qid-connect/scripts/check-integration.mjs https://www.yourapp.com --api /api/qid
 ```
 
-Ten checks, no wallet and no keys required. It catches the mistakes that leave no
-error in the browser at all: an `origin` that does not match where users land, a
-`proof_url` your users' phones would 404 against, per-process stores on a
-multi-instance deployment, a missing login-CSRF guard, a `/session` route that
-answers 200 to anonymous callers.
+Eleven checks, no wallet and no keys required. It catches the mistakes that leave
+no error in the browser at all: an `origin` that does not match where users land,
+a `proof_url` your users' phones would 404 against, per-process stores on a
+multi-instance deployment, a Content-Security-Policy that blocks the widget, a
+proxy or WAF answering on the SDK's behalf, and a `/session` route that answers
+200 to anonymous callers.
+
+Each check asserts on the SDK's own answer rather than on a status code, so a
+WAF that returns 403 to everything cannot pass a check whose point is that the
+SDK returned 403. Failures are split into "sign-in cannot work until you fix
+this" and "worth tightening".
 
 Exit code 0 means the surface is wired correctly. Then do one real signed round
 trip with `tools/signer/btx-sign-ownership.mjs` from the release pack, and you

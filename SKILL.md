@@ -156,11 +156,13 @@ bun scripts/check-integration.mjs http://localhost:3000        # or: node script
 bun scripts/check-integration.mjs https://www.yourapp.com --api /api/qid
 ```
 
-It exercises the real HTTP surface and reports pass/fail per check, so it catches
-origin mismatches, a `proof_url` your phone would 404 against, an unshared store
-across instances, and a session endpoint that leaks 200 to anonymous callers.
-Fix anything it flags before touching a wallet, because those failures all look
-identical from the UI: the dialog just never completes.
+It exercises the real HTTP surface and reports pass/fail per check: origin
+mismatches, a `proof_url` your phone would 404 against, an unshared store across
+instances, a CSP that blocks the widget, anything answering on the SDK's behalf,
+and a session endpoint that leaks 200 to anonymous callers. It separates
+failures that stop sign-in from ones merely worth tightening. Fix the blocking
+ones before touching a wallet: from the UI they are indistinguishable, because
+the dialog simply never completes.
 
 Then do one real signed round trip. From inside the release pack you can sign
 without any wallet installed:
