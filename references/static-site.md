@@ -67,12 +67,23 @@ Whatever the platform, it must be a proxy (status 200), not a redirect. A 301 or
 `origin` is the **page** origin, never the API host:
 
 ```js
+import { Database } from "bun:sqlite";
+import { createQidConnect, SqliteNonceStore, SqliteAccounts } from "@qid/connect-server";
+
+const db = new Database("/var/lib/qid/qid.sqlite");
 const qid = createQidConnect({
-  origin: "https://app.example.com",     // where users land
+  origin: "https://app.example.com",     // where users land, never the API host
   sessionSecret: process.env.QID_SESSION_SECRET,
-  nonceStore: new SqliteNonceStore({ path: "/var/lib/qid/qid.sqlite" }),
-  accounts: new SqliteAccounts({ path: "/var/lib/qid/qid.sqlite" }),
+  nonceStore: new SqliteNonceStore(db),  // a handle, not a path
+  accounts: new SqliteAccounts(db),
 });
+```
+
+Mounting on raw `node:http` rather than Express? Pass the base path explicitly,
+because `app.use("/qid", ...)` strips it and a raw server does not:
+
+```js
+const qidRoutes = qidMiddleware(qid, { basePath: "/qid" });
 ```
 
 Then verify from the outside, through the rewrite, which is the only test that

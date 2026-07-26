@@ -23,9 +23,23 @@ Usage: node check-integration.mjs <site-url> [--api <path>]
   process.exit(args.length === 0 ? 2 : 0);
 }
 
+if (typeof fetch !== "function") {
+  console.error("This needs a runtime with fetch built in: Node 18+, or bun.");
+  process.exit(2);
+}
+
 const rawUrl = args[0];
 const apiIdx = args.indexOf("--api");
-const apiPath = (apiIdx !== -1 ? args[apiIdx + 1] : "/qid").replace(/\/+$/, "");
+if (apiIdx !== -1 && !args[apiIdx + 1]) {
+  console.error('--api needs a value, e.g. --api /api/qid');
+  process.exit(2);
+}
+const apiRaw = apiIdx !== -1 ? args[apiIdx + 1] : "/qid";
+if (!apiRaw.startsWith("/")) {
+  console.error(`--api must be a path starting with "/", got: ${apiRaw}`);
+  process.exit(2);
+}
+const apiPath = apiRaw.replace(/\/+$/, "");
 
 let site;
 try {
@@ -176,21 +190,32 @@ const expectedProofUrl = `${origin}${apiPath}/proof`;
 // and the rendezvous is broken: the QR renders, then flips to expired.
 // ---------------------------------------------------------------------------
 {
-  const { json } = await post("/verify", {
-    v: 1,
-    alg: "ML-DSA-44",
-    address: "btx1zqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq",
-    challenge,
-    login_pubkey: "00",
-    recovery_leaf_hash: "00",
-    signature: "00",
-  });
-  const known = json?.reason !== "nonce_unknown";
+  // Sampled, not single-shot: behind a load balancer a single round trip can
+  // land back on the issuing instance by luck and pass while the deployment is
+  // still broken. Several fresh issue-then-use pairs make that unlikely.
+  const ROUNDS = 4;
+  const reasons = [];
+  for (let i = 0; i < ROUNDS; i++) {
+    const fresh = await post("/challenge");
+    const ch = fresh.json?.challenge;
+    if (!ch) continue;
+    const { json } = await post("/verify", {
+      v: 1,
+      alg: "ML-DSA-44",
+      address: "btx1zqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq",
+      challenge: ch,
+      login_pubkey: "00",
+      recovery_leaf_hash: "00",
+      signature: "00",
+    });
+    reasons.push(json?.reason ?? "none");
+  }
+  const lost = reasons.filter((r) => r === "nonce_unknown").length;
   record(
     "a nonce issued by this deployment is still known on the next request",
-    known,
-    `reason=${json?.reason ?? "none"}`,
-    "requests are hitting different instances with per-process stores - use SqliteNonceStore or a Redis/SQL store"
+    lost === 0,
+    `${ROUNDS - lost}/${ROUNDS} round trips kept the nonce${lost ? ` (lost: ${lost})` : ""}`,
+    "requests are hitting different instances with per-process stores - pass SqliteNonceStore on a shared volume, or a Redis/SQL store"
   );
 }
 

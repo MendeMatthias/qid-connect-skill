@@ -16,6 +16,8 @@ most of these directly and saves you the guessing.
 | `expired` or `not_yet_valid` | Server clock skew. The window is TTL plus 60 seconds of tolerance. |
 | Everyone signed out after a deploy | `sessionSecret` changed. It is derived per-process if you did not pin it; put it in a secret store. |
 | Works locally, fails in production only | Almost certainly `origin` again, plus a CDN redirect you did not know about. |
+| The button never renders, console shows a CSP violation | The hosted widget is a cross-origin module. Add `https://qid.dev` to `script-src`, or vendor the widget. |
+| `ERR_MODULE_NOT_FOUND` importing the SQLite stores | There is no `/sqlite` subpath. `SqliteNonceStore` and `SqliteAccounts` come from the package root, and they take a database handle, not a path. |
 | `bun install` fails on a bare server | `unzip` is missing: `apt-get install -y unzip`, or run on Node 20+ with the Node SQLite path. |
 
 ## Reason codes, and what each one means

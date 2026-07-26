@@ -9,6 +9,12 @@ Point your assistant at this folder and ask it to wire up qID sign-in. It will
 pick the right path for your stack, wire the server and the button, get the
 account model right, and verify the result against your running app.
 
+A developer who knows their own codebase should be signed in with a real
+post-quantum wallet signature in **15 to 30 minutes**. Most of the remaining
+time in a qID integration used to go on four mistakes that produce no error in
+the browser; the skill knows all four, and the checker below finds them in
+seconds instead of an afternoon.
+
 ## Install
 
 **Claude Code** (project or personal):

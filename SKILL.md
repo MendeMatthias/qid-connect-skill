@@ -33,7 +33,27 @@ Ask, or work out from the codebase, three things before writing code:
    need a shared store from the start.
 
 Then follow the four steps. They are ordered so you always have something
-verifiable before you add the next piece.
+verifiable before you add the next piece. A developer who knows their own
+codebase should be through all four in well under an hour; most of that is
+reading, not typing.
+
+## Step 0: get the SDK
+
+`@qid/connect-server` is **not on npm**. It ships in the release pack, which is
+a public download:
+
+```sh
+curl -LO https://qid.dev/connect/qid-connect-latest.zip && unzip qid-connect-latest.zip
+```
+
+Inside, `packages/server` is the SDK. Add it as a workspace dependency, or copy
+it into your app and install its three small dependencies
+(`@noble/post-quantum`, `@noble/hashes`, `@scure/base`). The pack also carries
+the runnable examples, the reference signer, and this skill.
+
+The button needs nothing installed at all: it imports from qid.dev at runtime.
+So if you only want address verification on a page you already serve, you can
+skip ahead, wire the two endpoints your framework needs, and come back.
 
 ## Step 1: the server
 
@@ -94,6 +114,14 @@ origins. Either way, keep the button and dialog stock. Sameness across BTX apps
 is what makes the flow trustworthy to users, so restyling it is a real cost.
 
 `mountQidAccount` renders nothing while signed out, so mount it unconditionally.
+
+**If the site sends a Content-Security-Policy, add qid.dev to `script-src`
+before you debug anything else.** The hosted import is a cross-origin module, so
+a strict policy blocks it and the button simply never appears, with the only
+clue in the browser console. qID's own sites run
+`script-src 'self' https://qid.dev` for exactly this reason. Vendoring the
+widget instead of importing it avoids the question entirely, which is the right
+call when a policy forbids third-party script origins outright.
 
 ## Step 3: the account model, and the one trap
 

@@ -35,20 +35,31 @@ fine; anything else needs a shared store, or replay protection stops being globa
 and accounts vanish on restart. The package warns about this under
 `NODE_ENV=production`.
 
+The stores take a **database handle**, not a path, and they come from the package
+root: there is no `/sqlite` subpath export, so importing one throws
+`ERR_MODULE_NOT_FOUND`.
+
 ```js
-import { SqliteNonceStore, SqliteAccounts } from "@qid/connect-server/sqlite";
+import { Database } from "bun:sqlite";                    // node: DatabaseSync from "node:sqlite"
+import { createQidConnect, SqliteNonceStore, SqliteAccounts } from "@qid/connect-server";
+
+const db = new Database("/var/lib/yourapp/qid.sqlite");
+db.exec("PRAGMA journal_mode=WAL");                        // concurrent readers, worth having
 
 const qid = createQidConnect({
   origin: process.env.QID_ORIGIN,
   sessionSecret: process.env.QID_SESSION_SECRET,
-  nonceStore: new SqliteNonceStore({ path: "/var/lib/yourapp/qid.sqlite" }),
-  accounts: new SqliteAccounts({ path: "/var/lib/yourapp/qid.sqlite" }),
+  nonceStore: new SqliteNonceStore(db),
+  accounts: new SqliteAccounts(db),
 });
 ```
 
-Works with `bun:sqlite`, `node:sqlite` or `better-sqlite3`. For multi-instance
-deployments implement the same two interfaces on Redis or your SQL server; both
-are small and documented in `stores.js`, and there is a conformance suite in
+One handle serves both stores; they create their own tables. `bun:sqlite`,
+`node:sqlite` and `better-sqlite3` all work, and
+`examples/static-rewrite-demo/server.mjs` shows the runtime-detecting version if
+you need to support both. For multi-instance deployments implement the same two
+interfaces on Redis or your SQL server; both are small and documented in
+`stores.js`, and there is a conformance suite in
 `packages/server/test/stores.test.js` to validate your adapter against.
 
 `QID_ALLOW_MEMORY_STORES=1` silences the production warning when you are
