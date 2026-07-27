@@ -408,19 +408,29 @@ await check("anonymous session", async () => {
 // and the only symptom is a console warning: no button, no error, no clue.
 // Only meaningful when the page actually imports the hosted widget, so look
 // before judging.
+//
+// 10b. The same policy must also allow the widget's styles. The widget injects
+// its stylesheet at runtime as a <style> element, so a style-src (or
+// default-src fallback) without an effective 'unsafe-inline' renders the
+// dialog as raw unstyled HTML while every script check still passes - which is
+// exactly how a live site broke once with this suite reporting all green.
+// Hash-pinning cannot fix it: the widget is hosted and unpinned, so the hash
+// changes every release, and a nonce or hash source in the directive makes
+// browsers IGNORE 'unsafe-inline' entirely.
 // ---------------------------------------------------------------------------
 await check("CSP", async () => {
   // Stay on this origin. If the root bounces to SSO or a marketing site, that
   // page's policy says nothing about the app, and chasing it can hang or fail
   // on a host that has nothing to do with the integration.
   const { res } = await req(origin);
+  const skipBoth = (scriptName, detail) => {
+    record(scriptName, true, detail, undefined, "hardening");
+    record("CSP allows the widget's runtime styles", true, detail, undefined, "hardening");
+  };
   if (res.status >= 300 && res.status < 400) {
-    record(
+    skipBoth(
       "CSP allows the hosted widget",
-      true,
-      `root redirects (${res.status}); cannot inspect the app's own page from here`,
-      undefined,
-      "hardening"
+      `root redirects (${res.status}); cannot inspect the app's own page from here`
     );
     return;
   }
@@ -433,17 +443,14 @@ await check("CSP", async () => {
   const csp = headerCsp || metaMatch?.[1] || "";
 
   if (!usesHosted) {
-    record(
+    skipBoth(
       "CSP allows the hosted widget (or the widget is vendored)",
-      true,
-      csp ? "page does not import the hosted widget; CSP not relevant" : "no hosted widget import found",
-      undefined,
-      "hardening"
+      csp ? "page does not import the hosted widget; CSP not relevant" : "no hosted widget import found"
     );
     return;
   }
   if (!csp) {
-    record("CSP allows the hosted widget", true, "no Content-Security-Policy set", undefined, "hardening");
+    skipBoth("CSP allows the hosted widget", "no Content-Security-Policy set");
     return;
   }
   const directive =
@@ -456,6 +463,28 @@ await check("CSP", async () => {
     allowed,
     directive ? `${directive[0].trim().slice(0, 90)}` : "no script-src or default-src directive",
     "add https://qid.dev to script-src, or vendor packages/widget/src/ instead - otherwise the button never renders and the only clue is a console warning"
+  );
+
+  // The injected <style> element is governed by style-src-elem, falling back
+  // to style-src, then default-src; no directive at all means unrestricted.
+  const styleDirective =
+    csp.match(/(?:^|;)\s*style-src-elem\s+([^;]+)/i) ||
+    csp.match(/(?:^|;)\s*style-src\s+([^;]+)/i) ||
+    csp.match(/(?:^|;)\s*default-src\s+([^;]+)/i);
+  let styleOk = true;
+  if (styleDirective) {
+    const sources = styleDirective[1];
+    const inlineNullified = /'(?:nonce-|sha(?:256|384|512)-)/i.test(sources);
+    styleOk = /'unsafe-inline'/i.test(sources) && !inlineNullified;
+  }
+  record(
+    "CSP allows the widget's runtime styles",
+    styleOk,
+    styleDirective
+      ? `${styleDirective[0].trim().slice(0, 90)}`
+      : "no style-src or default-src directive; styles unrestricted",
+    "use style-src 'self' 'unsafe-inline' - the widget injects its stylesheet at runtime, so a hash pin breaks on every widget release, and a nonce or hash source makes browsers ignore 'unsafe-inline'; otherwise the dialog renders as raw unstyled HTML",
+    "hardening"
   );
 });
 

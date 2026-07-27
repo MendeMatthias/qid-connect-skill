@@ -123,6 +123,14 @@ clue in the browser console. qID's own sites run
 widget instead of importing it avoids the question entirely, which is the right
 call when a policy forbids third-party script origins outright.
 
+**The same policy needs `style-src 'self' 'unsafe-inline'`.** The widget
+injects its stylesheet at runtime, so a `style-src` (or a bare `default-src`
+fallback) without `'unsafe-inline'` renders the dialog as raw unstyled HTML
+while every script check passes. Do not hash-pin the widget's style: it is
+hosted and unpinned, so the hash changes every release, and a nonce or hash
+source in the directive makes browsers ignore `'unsafe-inline'` entirely. This
+broke a live site once; the checker now fails on it.
+
 ## Step 3: the account model, and the one trap
 
 Your accounts table needs exactly one required column: `address TEXT PRIMARY
